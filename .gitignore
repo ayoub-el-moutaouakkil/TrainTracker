@@ -1,0 +1,19 @@
+# Java / Maven
+backend/target/
+*.class
+*.jar
+*.war
+*.log
+
+# Angular / Node
+front/node_modules/
+front/dist/
+front/.angular/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# macOS
+.DS_Store

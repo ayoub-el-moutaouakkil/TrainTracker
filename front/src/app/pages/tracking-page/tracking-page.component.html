@@ -1,0 +1,129 @@
+<div class="layout">
+
+  <!-- ── Carte (toujours en fond) ───────────────────────────────── -->
+  <main class="map-container">
+    <div id="map"></div>
+    @if (!j) {
+      <div class="map-placeholder">
+        <span>🗺️</span>
+        <p>Entre un numéro de train pour commencer</p>
+      </div>
+    }
+    <div class="map-attribution">
+      © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>
+      contributors © <a href="https://carto.com/attributions" target="_blank">CARTO</a>
+    </div>
+  </main>
+
+  <!-- ── Panneau ────────────────────────────────────────────────── -->
+  <aside class="panel" [class.panel--open]="panelOpen">
+
+    <!-- Handle mobile (drag / tap pour ouvrir/fermer) -->
+    <div class="panel__handle" (click)="panelOpen = !panelOpen">
+      <div class="panel__handle-bar"></div>
+    </div>
+
+    <header class="panel__header">
+      <span class="logo">🚄 TrainTracker</span>
+    </header>
+
+    <div class="panel__body">
+
+      <!-- Formulaire -->
+      <section class="section">
+        <h2 class="section__title">Suivre un train</h2>
+        <div class="form">
+          <label class="form__label">
+            Numéro du train
+            <input class="form__input" type="text" [(ngModel)]="trainNumber"
+                   placeholder="ex: 6201" (keydown.enter)="track()" inputmode="numeric" />
+          </label>
+          <label class="form__label">
+            Date
+            <input class="form__input" type="date" [(ngModel)]="date" />
+          </label>
+          <button class="btn btn--primary" (click)="track()" [disabled]="loading()">
+            {{ loading() ? 'Recherche...' : 'Tracker' }}
+          </button>
+        </div>
+        @if (error()) {
+          <p class="error">{{ error() }}</p>
+        }
+      </section>
+
+      <!-- Infos trajet -->
+      @if (j) {
+        <section class="section">
+          <div class="journey-header">
+            <span class="train-badge">TGV {{ j.trainNumber }}</span>
+            <span class="status-badge" [class]="'status-badge--' + j.status.toLowerCase()">
+              {{ statusLabel }}
+            </span>
+          </div>
+
+          @if (j.errorMessage) {
+            <p class="error">{{ j.errorMessage }}</p>
+          }
+
+          <div class="info-grid">
+            <div class="info-card" [class]="delayClass">
+              <span class="info-card__label">Retard</span>
+              <span class="info-card__value">{{ delayLabel }}</span>
+            </div>
+            @if (j.eta) {
+              <div class="info-card">
+                <span class="info-card__label">Arrivée estimée</span>
+                <span class="info-card__value">{{ formatTime(j.eta) }}</span>
+              </div>
+            }
+            @if (j.destination) {
+              <div class="info-card">
+                <span class="info-card__label">Destination</span>
+                <span class="info-card__value">{{ j.destination.stationName }}</span>
+              </div>
+            }
+            @if (j.nextStop) {
+              <div class="info-card info-card--highlight">
+                <span class="info-card__label">Prochain arrêt</span>
+                <span class="info-card__value">{{ j.nextStop.stationName }}</span>
+                <span class="info-card__sub">{{ formatTime(j.nextStop.expectedArrival ?? j.nextStop.scheduledArrival) }}</span>
+              </div>
+            }
+          </div>
+
+          <p class="last-updated">Mis à jour : {{ formatTime(j.lastUpdated) }}</p>
+        </section>
+
+        <!-- Liste des arrêts -->
+        @if (j.allStops && j.allStops.length) {
+          <section class="section section--stops">
+            <h2 class="section__title">Arrêts</h2>
+            <ol class="stop-list">
+              @for (stop of j.allStops; track stop.stationId) {
+                <li class="stop"
+                    [class.stop--departed]="stop.departed"
+                    [class.stop--next]="!stop.departed && j.nextStop?.stationId === stop.stationId"
+                    [class.stop--skipped]="stop.skipped">
+                  <div class="stop__dot"></div>
+                  <div class="stop__info">
+                    <span class="stop__name">{{ stop.stationName }}</span>
+                    <span class="stop__time">
+                      {{ formatTime(stop.expectedArrival ?? stop.scheduledArrival) }}
+                      @if (stop.skipped) { <em>(sauté)</em> }
+                    </span>
+                  </div>
+                </li>
+              }
+            </ol>
+          </section>
+        }
+
+        <div class="panel__footer">
+          <button class="btn btn--danger" (click)="stopTracking()">Arrêter le tracking</button>
+        </div>
+      }
+
+    </div>
+  </aside>
+
+</div>

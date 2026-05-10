@@ -1,0 +1,262 @@
+{
+  "info": {
+    "name": "TrainTracker API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "journeyId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1 — Démarrer le tracking d'un TGV",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.collectionVariables.set('journeyId', res.journeyId);",
+              "console.log('journeyId sauvegardé :', res.journeyId);",
+              "",
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('journeyId présent', () => pm.expect(res.journeyId).to.be.a('string'));",
+              "pm.test('trainNumber correct', () => pm.expect(res.trainNumber).to.eql('6201'));",
+              "pm.test('status défini', () => pm.expect(res.status).to.be.oneOf(['SCHEDULED','IN_PROGRESS','ARRIVED','UNKNOWN']));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"trainNumber\": \"6201\",\n  \"date\": \"2026-05-10\"\n}"
+        },
+        "url": "{{baseUrl}}/api/journeys"
+      }
+    },
+    {
+      "name": "1b — Train invalide (doit retourner UNKNOWN)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Status UNKNOWN', () => pm.expect(res.status).to.eql('UNKNOWN'));",
+              "pm.test('Message erreur présent', () => pm.expect(res.errorMessage).to.be.a('string'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"trainNumber\": \"9999\",\n  \"date\": \"2026-05-10\"\n}"
+        },
+        "url": "{{baseUrl}}/api/journeys"
+      }
+    },
+    {
+      "name": "1c — GTFS pas encore chargé (démarrage rapide)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const res = pm.response.json();",
+              "console.log('Status:', res.status, '| Message:', res.errorMessage);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"trainNumber\": \"6201\",\n  \"date\": \"2026-05-10\"\n}"
+        },
+        "url": "{{baseUrl}}/api/journeys"
+      }
+    },
+    {
+      "name": "2 — Lister tous les trajets trackés",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('Réponse est un tableau', () => pm.expect(pm.response.json()).to.be.an('array'));",
+              "console.log('Nombre de trajets :', pm.response.json().length);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/journeys"
+      }
+    },
+    {
+      "name": "3 — Récupérer la position / ETA d'un trajet",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const res = pm.response.json();",
+              "",
+              "pm.test('journeyId correspond', () => pm.expect(res.journeyId).to.eql(pm.collectionVariables.get('journeyId')));",
+              "pm.test('status présent', () => pm.expect(res.status).to.be.a('string'));",
+              "pm.test('lastUpdated présent', () => pm.expect(res.lastUpdated).to.be.a('string'));",
+              "",
+              "if (res.currentPosition) {",
+              "  pm.test('latitude valide', () => pm.expect(res.currentPosition.latitude).to.be.within(-90, 90));",
+              "  pm.test('longitude valide', () => pm.expect(res.currentPosition.longitude).to.be.within(-180, 180));",
+              "}",
+              "",
+              "if (res.status === 'IN_PROGRESS') {",
+              "  pm.test('ETA présente quand en route', () => pm.expect(res.eta).to.be.a('string'));",
+              "  pm.test('destination présente', () => pm.expect(res.destination).to.exist);",
+              "}",
+              "",
+              "console.log('Status:', res.status);",
+              "console.log('Retard:', res.delayMinutes, 'min');",
+              "console.log('ETA:', res.eta);",
+              "console.log('Position:', JSON.stringify(res.currentPosition));",
+              "console.log('Prochain arrêt:', res.nextStop?.stationName);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/journeys/{{journeyId}}"
+      }
+    },
+    {
+      "name": "3b — Trajet inexistant (doit faire 404)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 404', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/journeys/id-qui-nexiste-pas"
+      }
+    },
+    {
+      "name": "4 — Rafraîchir manuellement (temps réel)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const res = pm.response.json();",
+              "pm.test('lastUpdated mis à jour', () => pm.expect(res.lastUpdated).to.be.a('string'));",
+              "console.log('Rafraîchi à :', res.lastUpdated);",
+              "console.log('Retard après refresh :', res.delayMinutes, 'min');"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/journeys/{{journeyId}}/refresh"
+      }
+    },
+    {
+      "name": "4b — Refresh trajet inexistant (doit faire 404)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 404', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/journeys/id-bidon/refresh"
+      }
+    },
+    {
+      "name": "5 — Arrêter le tracking",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 204', () => pm.response.to.have.status(204));",
+              "console.log('Tracking supprimé pour :', pm.collectionVariables.get('journeyId'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/journeys/{{journeyId}}"
+      }
+    },
+    {
+      "name": "5b — Vérifier que le trajet n'existe plus",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 404 après suppression', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/journeys/{{journeyId}}"
+      }
+    },
+    {
+      "name": "5c — Delete inexistant (doit faire 404)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 404', () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "url": "{{baseUrl}}/api/journeys/id-bidon"
+      }
+    }
+  ]
+}
